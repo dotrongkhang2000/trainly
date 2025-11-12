@@ -14,8 +14,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 
 export interface DayPlan {
-  title: string;
-  description?: string;
+  type: string;
+  workout?: string | null;
 }
 
 const columns = [
@@ -32,10 +32,8 @@ const columns = [
 const renderDay = (day: DayPlan) => {
   return (
     <div>
-      <p className="font-medium">{day?.title}</p>
-      {day?.description && (
-        <p className="text-xs text-gray-500">{day?.description}</p>
-      )}
+      <p className="font-medium">{day?.type}</p>
+      {day?.workout && <p className="text-xs text-gray-500">{day?.workout}</p>}
     </div>
   );
 };
@@ -58,21 +56,31 @@ export const TrainingPlanTable = () => {
     })
   );
 
-  const rows = (plan || []).map((week) => ({
-    key: String(week.week),
-    week: (
-      <div>
-        <p>Week {week.week}</p>
-        <p className="text-xs text-gray-500">{week.total}</p>
-      </div>
-    ),
-    monday: renderDay(week.days[0]),
-    tuesday: renderDay(week.days[1]),
-    wednesday: renderDay(week.days[2]),
-    thursday: renderDay(week.days[3]),
-    friday: renderDay(week.days[4]),
-    saturday: renderDay(week.days[5]),
-    sunday: renderDay(week.days[6]),
+  const rows = Object.values(plan || {}).map((week, order) => ({
+    key: order,
+    week: <div>Week {order + 1}</div>,
+    monday: renderDay({ type: week.monday.type, workout: week.monday.workout }),
+    tuesday: renderDay({
+      type: week.tuesday.type,
+      workout: week.tuesday.workout,
+    }),
+    wednesday: renderDay({
+      type: week.wednesday.type,
+      workout: week.wednesday.workout,
+    }),
+    thursday: renderDay({
+      type: week.thursday.type,
+      workout: week.thursday.workout,
+    }),
+    friday: renderDay({ type: week.friday.type, workout: week.friday.workout }),
+    saturday: renderDay({
+      type: week.saturday.type,
+      workout: week.saturday.workout,
+    }),
+    sunday: renderDay({
+      type: week.sunday.type,
+      workout: week.sunday.workout,
+    }),
   }));
 
   return (
