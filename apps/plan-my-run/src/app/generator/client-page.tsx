@@ -1,181 +1,228 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Select, SelectItem, Card, CardBody } from "@heroui/react";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { useRef, useState } from "react";
+import {
+  Button,
+  Card,
+  NumberInput,
+  Radio,
+  RadioGroup,
+  Listbox,
+  ListboxItem,
+  CardHeader,
+} from "@heroui/react";
+import { DateInput } from "@heroui/react";
+import { differenceInWeeks, formatDate, isBefore } from "date-fns";
+import {
+  getLocalTimeZone,
+  today,
+  ZonedDateTime,
+} from "@internationalized/date";
+import { TrainingPlanTable } from "@/components/traning-plan-table";
+
+const weekDayOptions = [
+  { key: "monday", label: "Monday" },
+  { key: "tuesday", label: "Tuesday" },
+  { key: "wednesday", label: "Wednesday" },
+  { key: "thursday", label: "Thursday" },
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+];
+
+type Weekday =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
 
 export default function RaceConfiguration() {
-  const [selectedDistance, setSelectedDistance] = useState("5K");
-  const [selectedUnit, setSelectedUnit] = useState("Kilometers");
-  const [selectedPeriod, setSelectedPeriod] = useState("Select Weeks");
-  const [weeksUntilRace, setWeeksUntilRace] = useState("8");
-  const [raceDay, setRaceDay] = useState("Sunday");
+  const [distance, setDistance] = useState(5);
+  const [customDistance, setCustomDistance] = useState<undefined | number>(
+    undefined
+  );
 
-  const distances = ["5K", "10K", "Half Marathon", "Marathon"];
-  const units = ["Kilometers", "Miles"];
-  const periods = ["Select Weeks", "Select Race Date"];
+  const [raceDate, setRaceDate] = useState<null | ZonedDateTime>(null);
 
-  const weeks = Array.from({ length: 20 }, (_, i) => `${i + 1}`);
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
+  const [trainingDays, setTrainingDays] = useState(new Set<string>([]));
+  const [longRunDay, setLongRunDay] = useState(new Set<string>([]));
+
+  const [goalTime, setGoalTime] = useState({
+    hour: 0,
+    minute: 0,
+    second: 0,
+  });
+
+  const goalTimeSecond =
+    goalTime.hour * 3600 + goalTime.minute * 60 + goalTime.second;
+  const totalSecondsPerKm = Math.round(goalTimeSecond / distance);
+  const minutes = Math.floor(totalSecondsPerKm / 60);
+  const seconds = totalSecondsPerKm % 60;
+  const pace = `${minutes}:${seconds.toString().padStart(2, "0")} min/km`;
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8 flex items-center justify-center">
-      <Card className="w-full max-w-4xl bg-gray-800 border-2 border-yellow-400 rounded-3xl shadow-2xl">
-        <CardBody className="p-12">
-          {/* Title */}
-          <h1 className="text-4xl font-bold text-white text-center mb-12">
-            Race Configuration
-          </h1>
+    <>
+      <Card className="p-10 gap-8">
+        <div className="flex gap-2 flex-col">
+          <p className="text-tiny uppercase font-bold">
+            Select Your Race Distance:
+          </p>
 
-          {/* Race Distance Selection */}
-          <div className="mb-10">
-            <h2 className="text-xl font-semibold text-white mb-6">
-              Select Your Race Distance:
-            </h2>
-            <div className="flex flex-wrap gap-4">
-              {distances.map((distance) => (
-                <Button
-                  key={distance}
-                  variant={selectedDistance === distance ? "solid" : "bordered"}
-                  className={`px-8 py-3 text-lg font-medium rounded-lg transition-all duration-200 ${
-                    selectedDistance === distance
-                      ? "bg-green-400 text-black border-green-400 shadow-lg"
-                      : "bg-transparent text-white border-2 border-yellow-400 hover:border-green-400 hover:shadow-md"
-                  }`}
-                  onClick={() => setSelectedDistance(distance)}
-                >
-                  {distance}
-                </Button>
+          <RadioGroup
+            aria-label="Race Distance"
+            orientation="horizontal"
+            value={distance.toString()}
+            onValueChange={(value) => {
+              setDistance(Number(value));
+
+              setCustomDistance(undefined);
+            }}
+          >
+            <Radio value="5" className="mr-4">
+              5K
+            </Radio>
+            <Radio value="10" className="mr-4">
+              10K
+            </Radio>
+            <Radio value="21" className="mr-4">
+              21K
+            </Radio>
+            <Radio value="42" className="mr-4">
+              42K
+            </Radio>
+
+            <NumberInput
+              hideStepper
+              label="Custom"
+              size="sm"
+              className="max-w-30"
+              onValueChange={(value) => {
+                setCustomDistance(value);
+              }}
+              value={customDistance}
+            />
+          </RadioGroup>
+        </div>
+
+        <div className="flex gap-2 flex-col">
+          <p className="text-tiny uppercase font-bold">Race Date:</p>
+
+          <DateInput
+            aria-label="Race date"
+            className="max-w-sm"
+            minValue={today(getLocalTimeZone())}
+            value={raceDate}
+            onChange={setRaceDate}
+          />
+
+          <p className="text-tiny text-gray-500">
+            {raceDate &&
+              !isBefore(raceDate.toString(), new Date()) &&
+              `Calculated: ${differenceInWeeks(raceDate.toString(), new Date())} weeks
+          (Plan starts ${formatDate(raceDate.toString(), "dd/MM/yyyy")})`}
+          </p>
+        </div>
+
+        <div className="flex gap-2 flex-col">
+          <p className="text-tiny uppercase font-bold">Goal Time:</p>
+          <div className="flex gap-2">
+            <NumberInput
+              aria-label="Goal time hours"
+              placeholder="Hours"
+              size="md"
+              className="max-w-30"
+              labelPlacement="outside"
+              minValue={0}
+              onValueChange={(value) =>
+                setGoalTime({ ...goalTime, hour: value || 0 })
+              }
+            />
+
+            <NumberInput
+              aria-label="Goal time minutes"
+              placeholder="Minutes"
+              size="md"
+              className="max-w-30"
+              labelPlacement="outside"
+              minValue={0}
+              maxValue={60}
+              onValueChange={(value) =>
+                setGoalTime({ ...goalTime, minute: value || 0 })
+              }
+            />
+
+            <NumberInput
+              aria-label="Goal time seconds"
+              placeholder="Seconds"
+              size="md"
+              className="max-w-30"
+              labelPlacement="outside"
+              minValue={0}
+              maxValue={60}
+              onValueChange={(value) =>
+                setGoalTime({ ...goalTime, second: value || 0 })
+              }
+            />
+          </div>
+          {goalTimeSecond > 0 && <p className="text-tiny">Pace: {pace}</p>}
+        </div>
+
+        {/* add pace with goal time */}
+        <div className="flex gap-4">
+          <Card className="max-w-xs">
+            <CardHeader className="justify-between">
+              <p className="text-tiny uppercase font-bold">
+                Selected Training Days: 3
+              </p>
+            </CardHeader>
+
+            <Listbox
+              disallowEmptySelection
+              aria-label="Training Days"
+              selectionMode="multiple"
+              variant="flat"
+              selectedKeys={trainingDays}
+              onSelectionChange={(keys) => setTrainingDays(keys as Set<string>)}
+            >
+              {weekDayOptions.map((day) => (
+                <ListboxItem key={day.key}>{day.label}</ListboxItem>
               ))}
-            </div>
-          </div>
+            </Listbox>
+          </Card>
 
-          {/* Unit Selection */}
-          <div className="mb-10">
-            <h2 className="text-xl font-semibold text-white mb-6">
-              Select Your Preferred Unit:
-            </h2>
-            <div className="flex gap-4">
-              {units.map((unit) => (
-                <Button
-                  key={unit}
-                  variant={selectedUnit === unit ? "solid" : "bordered"}
-                  className={`px-8 py-3 text-lg font-medium rounded-lg transition-all duration-200 ${
-                    selectedUnit === unit
-                      ? "bg-green-400 text-black border-green-400 shadow-lg"
-                      : "bg-transparent text-white border-2 border-yellow-400 hover:border-green-400 hover:shadow-md"
-                  }`}
-                  onClick={() => setSelectedUnit(unit)}
-                >
-                  {unit}
-                </Button>
+          <Card className="max-w-xs">
+            <CardHeader className="text-tiny uppercase font-bold">
+              <p className="text-md">Select Your Long Run Day:</p>
+            </CardHeader>
+
+            <Listbox
+              disallowEmptySelection
+              aria-label="Long run day"
+              selectionMode="single"
+              variant="flat"
+              selectedKeys={longRunDay}
+              onSelectionChange={(keys) => setLongRunDay(keys as Set<string>)}
+              disabledKeys={weekDayOptions.map(({ key }) =>
+                !trainingDays.has(key) ? key : ""
+              )}
+            >
+              {weekDayOptions.map((day) => (
+                <ListboxItem key={day.key}>{day.label}</ListboxItem>
               ))}
-            </div>
-          </div>
+            </Listbox>
+          </Card>
+        </div>
 
-          {/* Training Period Selection */}
-          <div className="mb-10">
-            <h2 className="text-xl font-semibold text-white mb-6">
-              Choose Your Training Period:
-            </h2>
-            <div className="flex gap-4">
-              {periods.map((period) => (
-                <Button
-                  key={period}
-                  variant={selectedPeriod === period ? "solid" : "bordered"}
-                  className={`px-8 py-3 text-lg font-medium rounded-lg transition-all duration-200 ${
-                    selectedPeriod === period
-                      ? "bg-green-400 text-black border-green-400 shadow-lg"
-                      : "bg-transparent text-white border-2 border-yellow-400 hover:border-green-400 hover:shadow-md"
-                  }`}
-                  onClick={() => setSelectedPeriod(period)}
-                >
-                  {period}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Dropdowns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Weeks Until Race */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">
-                Weeks Until Race:
-              </h3>
-              <Select
-                selectedKeys={[weeksUntilRace]}
-                onSelectionChange={(keys) =>
-                  setWeeksUntilRace(Array.from(keys)[0] as string)
-                }
-                className="w-full"
-                classNames={{
-                  trigger:
-                    "bg-transparent border-2 border-yellow-400 text-white hover:border-green-400 rounded-lg h-14 transition-colors duration-200",
-                  value: "text-white text-lg",
-                  popoverContent:
-                    "bg-gray-800 border-2 border-yellow-400 rounded-lg",
-                  listbox: "bg-gray-800",
-                }}
-                placeholder="Select weeks"
-                selectorIcon={
-                  <ChevronDownIcon className="w-5 h-5 text-white" />
-                }
-              >
-                {weeks.map((week) => (
-                  <SelectItem
-                    key={week}
-                    className="text-white hover:bg-gray-700 data-[hover=true]:bg-gray-700"
-                  >
-                    {week} Weeks
-                  </SelectItem>
-                ))}
-              </Select>
-            </div>
-
-            {/* Race Day */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Race Day:</h3>
-              <Select
-                selectedKeys={[raceDay]}
-                onSelectionChange={(keys) =>
-                  setRaceDay(Array.from(keys)[0] as string)
-                }
-                className="w-full"
-                classNames={{
-                  trigger:
-                    "bg-transparent border-2 border-yellow-400 text-white hover:border-green-400 rounded-lg h-14 transition-colors duration-200",
-                  value: "text-white text-lg",
-                  popoverContent:
-                    "bg-gray-800 border-2 border-yellow-400 rounded-lg",
-                  listbox: "bg-gray-800",
-                }}
-                placeholder="Select day"
-                selectorIcon={
-                  <ChevronDownIcon className="w-5 h-5 text-white" />
-                }
-              >
-                {days.map((day) => (
-                  <SelectItem
-                    key={day}
-                    className="text-white hover:bg-gray-700 data-[hover=true]:bg-gray-700"
-                  >
-                    {day}
-                  </SelectItem>
-                ))}
-              </Select>
-            </div>
-          </div>
-        </CardBody>
+        <div className="flex gap-2">
+          <Button color="primary">Start Training Plan</Button>
+          <Button>Start over</Button>
+        </div>
       </Card>
-    </div>
+
+      <TrainingPlanTable />
+    </>
   );
 }
